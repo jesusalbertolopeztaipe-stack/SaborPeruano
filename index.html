@@ -59,23 +59,9 @@
     .button:focus {
       outline: none;
     }
-
-    /* Contenedor para el título */
-    h1 {
-      position: absolute;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 36px;
-      font-weight: bold;
-      color: #FFD700; /* Dorado */
-      text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.6);
-    }
   </style>
 </head>
 <body>
-
-<h1>Carta del Restaurante</h1>
 
 <div class="pdf-container">
   <!-- Contenedor donde se renderizará el PDF -->
@@ -104,8 +90,8 @@
     const windowHeight = window.innerHeight;
     
     // Establece un valor de escala basado en el tamaño de la ventana
-    // El valor de 1.5 puede ajustarse dependiendo del tamaño de las páginas de tu PDF
-    const scale = Math.min(windowWidth / 800, windowHeight / 1200);
+    // Usamos una escala mayor para que el PDF ocupe más espacio
+    const scale = Math.min(windowWidth / 600, windowHeight / 800); // Ajustado para hacerlo más grande
     return scale < 1 ? scale : 1;
   }
 
