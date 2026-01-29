@@ -84,21 +84,21 @@
   let startX = 0;
   let endX = 0;
   let isSwiping = false;
-  let isRendering = false; // Prevenir renderizados simultáneos
+  let isRendering = false;
+  let cachedPages = {}; // Cache para las páginas precargadas
+  let cachedCanvases = {}; // Canvas precargados para cada página
 
   // Función para actualizar la visibilidad de las flechas
   function updateArrows() {
     const prevButton = document.getElementById('prev');
     const nextButton = document.getElementById('next');
 
-    // Ocultar flecha izquierda en la primera página
     if (currentPage === 1) {
       prevButton.classList.add('hidden');
     } else {
       prevButton.classList.remove('hidden');
     }
 
-    // Ocultar flecha derecha en la última página
     if (currentPage === totalPages) {
       nextButton.classList.add('hidden');
     } else {
@@ -109,76 +109,143 @@
   // Función mejorada para calcular la escala óptima
   function getOptimalScale(page) {
     const container = document.getElementById('pdf-container');
+    
+    // Forzar recalculo del tamaño del contenedor
     const containerWidth = container.clientWidth;
     const containerHeight = container.clientHeight;
 
-    // Obtener el viewport original del PDF
+    // Si el contenedor no tiene dimensiones, usar window
+    const width = containerWidth || window.innerWidth;
+    const height = containerHeight || window.innerHeight;
+
     const viewport = page.getViewport({ scale: 1 });
     const pageWidth = viewport.width;
     const pageHeight = viewport.height;
 
-    // Calcular escalas basadas en el contenedor
-    const scaleX = (containerWidth * 0.95) / pageWidth;
-    const scaleY = (containerHeight * 0.95) / pageHeight;
+    const scaleX = (width * 0.95) / pageWidth;
+    const scaleY = (height * 0.95) / pageHeight;
 
-    // Usar la escala menor para mantener la proporción
     return Math.min(scaleX, scaleY);
+  }
+
+  // Función para precargar todas las páginas
+  function preloadAllPages() {
+    for (let i = 1; i <= totalPages; i++) {
+      pdfDoc.getPage(i).then(function(page) {
+        cachedPages[i] = page;
+      }).catch(function(error) {
+        console.error('Error precargando página ' + i + ':', error);
+      });
+    }
+  }
+
+  // Función para mostrar una página ya renderizada
+  function displayCachedPage(pageNum) {
+    if (isRendering) return;
+    
+    const cachedCanvas = cachedCanvases[pageNum];
+    if (!cachedCanvas) {
+      renderPage(pageNum);
+      return;
+    }
+
+    isRendering = true;
+    
+    const canvas = document.getElementById('pdf-canvas');
+    const ctx = canvas.getContext('2d');
+
+    // Copiar el canvas cacheado
+    canvas.width = cachedCanvas.width;
+    canvas.height = cachedCanvas.height;
+    canvas.style.width = cachedCanvas.style.width;
+    canvas.style.height = cachedCanvas.style.height;
+
+    ctx.drawImage(cachedCanvas, 0, 0);
+    
+    isRendering = false;
+    updateArrows();
+  }
+
+  // Función para renderizar y cachear una página
+  function renderAndCachePage(pageNum) {
+    if (!cachedPages[pageNum]) {
+      return;
+    }
+
+    const page = cachedPages[pageNum];
+    const scale = getOptimalScale(page);
+    const viewport = page.getViewport({ scale: scale });
+    const dpr = window.devicePixelRatio || 1;
+
+    const displayWidth = Math.floor(viewport.width);
+    const displayHeight = Math.floor(viewport.height);
+
+    // Crear canvas temporal para cachear
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+
+    tempCanvas.width = displayWidth * dpr;
+    tempCanvas.height = displayHeight * dpr;
+    tempCanvas.style.width = displayWidth + 'px';
+    tempCanvas.style.height = displayHeight + 'px';
+
+    tempCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const renderContext = {
+      canvasContext: tempCtx,
+      viewport: viewport
+    };
+
+    return page.render(renderContext).promise.then(function() {
+      cachedCanvases[pageNum] = tempCanvas;
+    });
   }
 
   // Función para renderizar la página con alta calidad
   function renderPage(pageNum) {
-    // Prevenir renderizados simultáneos
-    if (isRendering) {
+    if (isRendering) return;
+
+    // Si ya está cacheada, mostrarla directamente
+    if (cachedCanvases[pageNum]) {
+      displayCachedPage(pageNum);
       return;
     }
 
     isRendering = true;
 
-    pdfDoc.getPage(pageNum).then(function(page) {
+    const pagePromise = cachedPages[pageNum] 
+      ? Promise.resolve(cachedPages[pageNum])
+      : pdfDoc.getPage(pageNum);
+
+    pagePromise.then(function(page) {
       const canvas = document.getElementById('pdf-canvas');
       const ctx = canvas.getContext('2d');
       
-      // Calcular la escala óptima
       const scale = getOptimalScale(page);
       const viewport = page.getViewport({ scale: scale });
-
-      // Usar devicePixelRatio para alta resolución
       const dpr = window.devicePixelRatio || 1;
 
-      // IMPORTANTE: Primero limpiar el canvas
-      canvas.width = 0;
-      canvas.height = 0;
-
-      // Luego establecer los tamaños correctos
       const displayWidth = Math.floor(viewport.width);
       const displayHeight = Math.floor(viewport.height);
 
-      // Establecer el tamaño real del canvas (resolución)
       canvas.width = displayWidth * dpr;
       canvas.height = displayHeight * dpr;
-
-      // Establecer el tamaño visual del canvas (CSS)
       canvas.style.width = displayWidth + 'px';
       canvas.style.height = displayHeight + 'px';
 
-      // Escalar el contexto para compensar el DPR
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      // Renderizar la página
       const renderContext = {
         canvasContext: ctx,
         viewport: viewport
       };
 
-      page.render(renderContext).promise.then(function() {
-        isRendering = false;
-        updateArrows(); // Actualizar flechas después de renderizar
-      }).catch(function(error) {
-        console.error('Error al renderizar:', error);
-        isRendering = false;
-      });
+      return page.render(renderContext).promise;
+    }).then(function() {
+      isRendering = false;
+      updateArrows();
     }).catch(function(error) {
-      console.error('Error al obtener página:', error);
+      console.error('Error al renderizar página:', error);
       isRendering = false;
     });
   }
@@ -188,11 +255,23 @@
     pdfDoc = pdf;
     totalPages = pdf.numPages;
     
-    // Esperar un momento antes del primer renderizado para asegurar
-    // que el DOM esté completamente listo
-    requestAnimationFrame(function() {
+    // Precargar todas las páginas en segundo plano
+    preloadAllPages();
+    
+    // Esperar a que el layout esté listo antes del primer render
+    setTimeout(function() {
+      // Renderizar la primera página
       renderPage(currentPage);
-    });
+      
+      // Cachear las siguientes páginas después de un momento
+      setTimeout(function() {
+        for (let i = 1; i <= totalPages; i++) {
+          if (cachedPages[i]) {
+            renderAndCachePage(i);
+          }
+        }
+      }, 500);
+    }, 100);
   }).catch(function(error) {
     console.error('Error al cargar el PDF:', error);
   });
