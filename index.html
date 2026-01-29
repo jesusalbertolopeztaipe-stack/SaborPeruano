@@ -69,12 +69,23 @@
 <!-- Incluimos PDF.js desde un CDN -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
 <script>
-  // URL del PDF (reemplaza con el enlace correcto)
+  // URL del PDF
   const url = 'https://jesusalbertolopeztaipe-stack.github.io/SaborPeruano/CARTA.pdf';
 
   let pdfDoc = null;
   let currentPage = 1;
   let totalPages = 0;
+
+  // Función para obtener el tamaño de la ventana y ajustar la escala
+  function getScale() {
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    
+    // Establece un valor de escala basado en el tamaño de la ventana
+    // El valor de 1.5 puede ajustarse dependiendo del tamaño de las páginas de tu PDF
+    const scale = Math.min(windowWidth / 800, windowHeight / 1200);
+    return scale < 1 ? scale : 1;
+  }
 
   // Cargar el PDF
   pdfjsLib.getDocument(url).promise.then(function(pdf) {
@@ -88,7 +99,10 @@
     pdfDoc.getPage(pageNum).then(function(page) {
       const canvas = document.getElementById('pdf-canvas');
       const ctx = canvas.getContext('2d');
-      const viewport = page.getViewport({ scale: 1.5 });
+      
+      // Obtener la escala basada en el tamaño de la ventana
+      const scale = getScale();
+      const viewport = page.getViewport({ scale: scale });
 
       // Ajustar el tamaño del canvas al tamaño de la ventana
       canvas.width = viewport.width;
@@ -115,6 +129,11 @@
       currentPage--;
       renderPage(currentPage);
     }
+  });
+  
+  // Re-renderizar al cambiar el tamaño de la ventana
+  window.addEventListener('resize', function() {
+    renderPage(currentPage);
   });
 </script>
 
