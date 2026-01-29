@@ -88,11 +88,11 @@
     const scaleByWidth = windowWidth / 600;    // 600 es el ancho aproximado del PDF
 
     // Queremos que el PDF se ajuste al límite de altura, pero sin deformarse, usando la escala más pequeña
-    const scale = Math.min(scaleByHeight, scaleByWidth);
+    let scale = Math.min(scaleByHeight, scaleByWidth);
     
     // Para móviles pequeños, la escala debe ser ajustada para no ser tan grande
     if (windowWidth < 600) {
-      return Math.min(scale, 0.85); // Limita la escala a un máximo del 85% en pantallas pequeñas
+      scale = Math.min(scale, 0.85); // Limita la escala a un máximo del 85% en pantallas pequeñas
     }
 
     return scale; // Esta escala asegura que el contenido no se deforme
