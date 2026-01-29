@@ -14,21 +14,17 @@
       font-family: 'Arial', sans-serif;
     }
 
-    /* El contenedor del PDF ocupará toda la pantalla */
+    /* El contenedor debe ajustarse al tamaño del PDF sin ocupar toda la pantalla */
     .pdf-container {
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
-      width: 100%;
       position: relative;
       touch-action: none; /* Prevenir que el navegador haga scroll mientras detectamos el gesto */
     }
 
-    /* El canvas se ajusta al tamaño de la ventana */
+    /* El canvas se ajusta proporcionalmente, pero no ocupa toda la pantalla */
     canvas {
-      width: 100%;
-      height: 100%;
       border: none;
     }
 
@@ -83,7 +79,7 @@
     const windowWidth = window.innerWidth;
     const windowHeight = window.innerHeight;
 
-    // Usar la altura disponible para el ajuste, sin deformar el aspecto
+    // Usamos la altura disponible para el ajuste, sin deformar el aspecto
     const scaleByHeight = windowHeight / 800;  // 800 es la altura aproximada del PDF
     const scaleByWidth = windowWidth / 600;    // 600 es el ancho aproximado del PDF
 
