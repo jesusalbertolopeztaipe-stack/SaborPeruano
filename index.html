@@ -87,6 +87,7 @@
   let isRendering = false;
   let cachedPages = {}; // Cache para las páginas precargadas
   let cachedCanvases = {}; // Canvas precargados para cada página
+  let allPagesLoaded = false;
 
   // Función para actualizar la visibilidad de las flechas
   function updateArrows() {
@@ -110,13 +111,9 @@
   function getOptimalScale(page) {
     const container = document.getElementById('pdf-container');
     
-    // Forzar recalculo del tamaño del contenedor
-    const containerWidth = container.clientWidth;
-    const containerHeight = container.clientHeight;
-
-    // Si el contenedor no tiene dimensiones, usar window
-    const width = containerWidth || window.innerWidth;
-    const height = containerHeight || window.innerHeight;
+    // Usar las dimensiones de la ventana directamente
+    const width = window.innerWidth;
+    const height = window.innerHeight;
 
     const viewport = page.getViewport({ scale: 1 });
     const pageWidth = viewport.width;
@@ -129,17 +126,25 @@
   }
 
   // Función para precargar todas las páginas
-  function preloadAllPages() {
+  async function preloadAllPages() {
+    const promises = [];
+    
     for (let i = 1; i <= totalPages; i++) {
-      pdfDoc.getPage(i).then(function(page) {
+      const promise = pdfDoc.getPage(i).then(function(page) {
         cachedPages[i] = page;
       }).catch(function(error) {
         console.error('Error precargando página ' + i + ':', error);
       });
+      promises.push(promise);
     }
+    
+    // Esperar a que TODAS las páginas estén cargadas
+    await Promise.all(promises);
+    allPagesLoaded = true;
+    console.log('Todas las páginas precargadas');
   }
 
-  // Función para mostrar una página ya renderizada
+  // Función para mostrar una página ya renderizada del cache
   function displayCachedPage(pageNum) {
     if (isRendering) return;
     
@@ -166,10 +171,10 @@
     updateArrows();
   }
 
-  // Función para renderizar y cachear una página
+  // Función para renderizar y cachear una página en segundo plano
   function renderAndCachePage(pageNum) {
-    if (!cachedPages[pageNum]) {
-      return;
+    if (!cachedPages[pageNum] || cachedCanvases[pageNum]) {
+      return Promise.resolve();
     }
 
     const page = cachedPages[pageNum];
@@ -198,7 +203,27 @@
 
     return page.render(renderContext).promise.then(function() {
       cachedCanvases[pageNum] = tempCanvas;
+      console.log('Página ' + pageNum + ' cacheada');
+    }).catch(function(error) {
+      console.error('Error cacheando página ' + pageNum + ':', error);
     });
+  }
+
+  // Función para cachear todas las páginas en segundo plano
+  async function cacheAllPages() {
+    if (!allPagesLoaded) {
+      console.log('Esperando a que todas las páginas se carguen...');
+      return;
+    }
+    
+    console.log('Iniciando cacheo de todas las páginas...');
+    
+    // Cachear las páginas de forma secuencial para evitar sobrecarga
+    for (let i = 1; i <= totalPages; i++) {
+      await renderAndCachePage(i);
+    }
+    
+    console.log('Todas las páginas han sido cacheadas');
   }
 
   // Función para renderizar la página con alta calidad
@@ -251,27 +276,21 @@
   }
 
   // Cargar el PDF
-  pdfjsLib.getDocument(url).promise.then(function(pdf) {
+  pdfjsLib.getDocument(url).promise.then(async function(pdf) {
     pdfDoc = pdf;
     totalPages = pdf.numPages;
     
-    // Precargar todas las páginas en segundo plano
-    preloadAllPages();
+    // Paso 1: Precargar todas las páginas del PDF
+    await preloadAllPages();
     
-    // Esperar a que el layout esté listo antes del primer render
+    // Paso 2: Renderizar la primera página
+    renderPage(currentPage);
+    
+    // Paso 3: Cachear todas las páginas en segundo plano
     setTimeout(function() {
-      // Renderizar la primera página
-      renderPage(currentPage);
-      
-      // Cachear las siguientes páginas después de un momento
-      setTimeout(function() {
-        for (let i = 1; i <= totalPages; i++) {
-          if (cachedPages[i]) {
-            renderAndCachePage(i);
-          }
-        }
-      }, 500);
-    }, 100);
+      cacheAllPages();
+    }, 1000);
+    
   }).catch(function(error) {
     console.error('Error al cargar el PDF:', error);
   });
