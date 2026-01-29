@@ -22,6 +22,7 @@
       height: 100vh;
       width: 100%;
       position: relative;
+      touch-action: none; /* Prevenir que el navegador haga scroll mientras detectamos el gesto */
     }
 
     /* El canvas se ajusta al tamaño de la ventana */
@@ -77,6 +78,11 @@
   let pdfDoc = null;
   let currentPage = 1;
   let totalPages = 0;
+
+  // Variables para controlar el gesto de deslizamiento
+  let startX = 0;
+  let endX = 0;
+  let isSwiping = false;
 
   // Función para obtener la escala adecuada
   function getScale() {
@@ -159,24 +165,36 @@
     }
   });
 
-  // Hacer clic en la izquierda para ir a la página anterior
-  document.getElementById('pdf-container').addEventListener('click', function(e) {
-    const containerWidth = e.target.offsetWidth;
-    const clickPosition = e.clientX;
+  // Detectar el gesto de deslizamiento para navegar entre páginas
+  document.getElementById('pdf-container').addEventListener('touchstart', function(e) {
+    // Obtener la posición inicial del toque
+    startX = e.touches[0].clientX;
+    isSwiping = true;
+  });
 
-    // Si se hace clic en la mitad izquierda de la pantalla, ir a la página anterior
-    if (clickPosition < containerWidth / 2) {
-      if (currentPage > 1) {
-        currentPage--;
-        renderPageWithHighResolution(currentPage);
-      }
-    } else {
-      // Si se hace clic en la mitad derecha, ir a la página siguiente
-      if (currentPage < totalPages) {
-        currentPage++;
-        renderPageWithHighResolution(currentPage);
+  document.getElementById('pdf-container').addEventListener('touchmove', function(e) {
+    if (!isSwiping) return;
+    endX = e.touches[0].clientX;
+  });
+
+  document.getElementById('pdf-container').addEventListener('touchend', function(e) {
+    if (isSwiping) {
+      const swipeThreshold = 50; // Umbral para detectar un deslizamiento significativo
+      if (startX - endX > swipeThreshold) {
+        // Deslizar a la izquierda (retroceder)
+        if (currentPage > 1) {
+          currentPage--;
+          renderPageWithHighResolution(currentPage);
+        }
+      } else if (endX - startX > swipeThreshold) {
+        // Deslizar a la derecha (avanzar)
+        if (currentPage < totalPages) {
+          currentPage++;
+          renderPageWithHighResolution(currentPage);
+        }
       }
     }
+    isSwiping = false; // Resetear el estado del deslizamiento
   });
 
   // Re-renderizar al cambiar el tamaño de la ventana
