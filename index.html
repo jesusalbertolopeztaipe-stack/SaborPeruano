@@ -21,6 +21,7 @@
       align-items: center;
       height: 100vh;
       width: 100%;
+      position: relative;
     }
 
     /* El canvas se ajusta al tamaño de la ventana */
@@ -31,67 +32,59 @@
     }
 
     /* Los controles de navegación */
-    .controls {
+    .button {
       position: absolute;
       top: 50%;
-      width: 100%;
-      display: flex;
-      justify-content: space-between;
+      font-size: 24px;
+      color: #FFD700;
+      background: none;
+      border: none;
+      cursor: pointer;
+      z-index: 2;
       padding: 20px;
     }
 
-    .button {
-      padding: 15px 30px;
-      font-size: 20px;
-      background-color: #FFD700; /* Dorado (color peruano) */
-      color: #fff;
-      border: none;
-      border-radius: 50px;
-      cursor: pointer;
-      transition: background-color 0.3s ease, transform 0.2s ease;
+    /* Estilo de los botones de navegación en la izquierda y derecha */
+    .left {
+      left: 10px;
+    }
+
+    .right {
+      right: 10px;
     }
 
     .button:hover {
-      background-color: #FFB700; /* Dorado más oscuro */
       transform: scale(1.1);
-    }
-
-    .button:focus {
-      outline: none;
     }
   </style>
 </head>
 <body>
 
-<div class="pdf-container">
+<div class="pdf-container" id="pdf-container">
   <!-- Contenedor donde se renderizará el PDF -->
   <canvas id="pdf-canvas"></canvas>
-</div>
 
-<!-- Controles de navegación -->
-<div class="controls">
-  <button id="prev" class="button">Anterior</button>
-  <button id="next" class="button">Siguiente</button>
+  <!-- Botones invisibles para navegar -->
+  <button id="prev" class="button left">&#10094;</button>
+  <button id="next" class="button right">&#10095;</button>
 </div>
 
 <!-- Incluimos PDF.js desde un CDN -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
 <script>
-  // URL del PDF
   const url = 'https://jesusalbertolopeztaipe-stack.github.io/SaborPeruano/CARTA.pdf';
-
+  
   let pdfDoc = null;
   let currentPage = 1;
   let totalPages = 0;
 
-  // Función para obtener el tamaño de la ventana y ajustar la escala
+  // Función para obtener la escala adecuada
   function getScale() {
     const windowWidth = window.innerWidth;
     const windowHeight = window.innerHeight;
     
-    // Establece un valor de escala basado en el tamaño de la ventana
-    // Usamos una escala mayor para que el PDF ocupe más espacio
-    const scale = Math.min(windowWidth / 600, windowHeight / 800); // Ajustado para hacerlo más grande
+    // Ajustar la escala dependiendo del tamaño de la ventana
+    const scale = Math.min(windowWidth / 600, windowHeight / 800);
     return scale < 1 ? scale : 1;
   }
 
@@ -108,15 +101,12 @@
       const canvas = document.getElementById('pdf-canvas');
       const ctx = canvas.getContext('2d');
       
-      // Obtener la escala basada en el tamaño de la ventana
       const scale = getScale();
       const viewport = page.getViewport({ scale: scale });
 
-      // Ajustar el tamaño del canvas al tamaño de la ventana
       canvas.width = viewport.width;
       canvas.height = viewport.height;
 
-      // Renderizar la página en el canvas
       page.render({
         canvasContext: ctx,
         viewport: viewport
@@ -124,7 +114,7 @@
     });
   }
 
-  // Funciones de navegación
+  // Función para pasar a la siguiente página
   document.getElementById('next').addEventListener('click', function() {
     if (currentPage < totalPages) {
       currentPage++;
@@ -132,13 +122,34 @@
     }
   });
 
+  // Función para retroceder a la página anterior
   document.getElementById('prev').addEventListener('click', function() {
     if (currentPage > 1) {
       currentPage--;
       renderPage(currentPage);
     }
   });
-  
+
+  // Hacer clic en la izquierda para ir a la página anterior
+  document.getElementById('pdf-container').addEventListener('click', function(e) {
+    const containerWidth = e.target.offsetWidth;
+    const clickPosition = e.clientX;
+
+    // Si se hace clic en la mitad izquierda de la pantalla, ir a la página anterior
+    if (clickPosition < containerWidth / 2) {
+      if (currentPage > 1) {
+        currentPage--;
+        renderPage(currentPage);
+      }
+    } else {
+      // Si se hace clic en la mitad derecha, ir a la página siguiente
+      if (currentPage < totalPages) {
+        currentPage++;
+        renderPage(currentPage);
+      }
+    }
+  });
+
   // Re-renderizar al cambiar el tamaño de la ventana
   window.addEventListener('resize', function() {
     renderPage(currentPage);
