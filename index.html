@@ -27,7 +27,7 @@
 
     /* El canvas se ajusta al tamaño de la ventana */
     canvas {
-      width: 100%; /* Hacer que el canvas ocupe toda la pantalla */
+      width: 100%;
       height: 100%;
       border: none;
     }
@@ -62,7 +62,6 @@
 <body>
 
 <div class="pdf-container" id="pdf-container">
-  <!-- Contenedor donde se renderizará el PDF -->
   <canvas id="pdf-canvas"></canvas>
 
   <!-- Botones invisibles para navegar -->
@@ -84,10 +83,12 @@
     const windowWidth = window.innerWidth;
     const windowHeight = window.innerHeight;
     
-    // Ajustar la escala dependiendo del tamaño de la ventana
-    // Ajuste para pantallas móviles y de escritorio
-    const scale = Math.min(windowWidth / 600, windowHeight / 800);
-    return scale < 1 ? scale : 1;
+    // Ajustar la escala según el alto máximo disponible
+    const scaleByHeight = windowHeight / 800;  // 800 es el alto aproximado del PDF
+    const scaleByWidth = windowWidth / 600;    // 600 es el ancho aproximado del PDF
+
+    // Usamos la menor de las dos escalas para asegurarnos de que la página cabe en la pantalla
+    return Math.min(scaleByWidth, scaleByHeight);
   }
 
   // Función para aumentar la resolución del canvas
@@ -96,15 +97,15 @@
       const canvas = document.getElementById('pdf-canvas');
       const ctx = canvas.getContext('2d');
       
-      // Ajuste de la escala para la resolución del canvas
-      const scale = getScale(); // Usamos un valor de escala más adecuado
+      // Usamos la escala calculada para ajustarnos a la pantalla
+      const scale = getScale();
       const viewport = page.getViewport({ scale: scale });
 
       // Ajustar el tamaño del canvas al tamaño de la ventana
       canvas.width = viewport.width;
       canvas.height = viewport.height;
 
-      // Aumentar la resolución del canvas
+      // Aumentar la resolución del canvas solo si es necesario
       const dpiScale = window.devicePixelRatio || 1;
       canvas.width = viewport.width * dpiScale;
       canvas.height = viewport.height * dpiScale;
@@ -162,7 +163,6 @@
 
   // Detectar el gesto de deslizamiento para navegar entre páginas
   document.getElementById('pdf-container').addEventListener('touchstart', function(e) {
-    // Obtener la posición inicial del toque
     startX = e.touches[0].clientX;
     isSwiping = true;
   });
