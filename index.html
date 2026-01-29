@@ -27,8 +27,8 @@
 
     /* El canvas se ajusta al tamaño de la ventana */
     canvas {
-      max-width: 100%;
-      max-height: 100%;
+      width: 100%; /* Hacer que el canvas ocupe toda la pantalla */
+      height: 100%;
       border: none;
     }
 
@@ -79,11 +79,6 @@
   let currentPage = 1;
   let totalPages = 0;
 
-  // Variables para controlar el gesto de deslizamiento
-  let startX = 0;
-  let endX = 0;
-  let isSwiping = false;
-
   // Función para obtener la escala adecuada
   function getScale() {
     const windowWidth = window.innerWidth;
@@ -102,7 +97,7 @@
       const ctx = canvas.getContext('2d');
       
       // Ajuste de la escala para la resolución del canvas
-      const scale = getScale() * 2; // Multiplicar por 2 para mejorar la calidad
+      const scale = getScale(); // Usamos un valor de escala más adecuado
       const viewport = page.getViewport({ scale: scale });
 
       // Ajustar el tamaño del canvas al tamaño de la ventana
