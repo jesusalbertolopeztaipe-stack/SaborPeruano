@@ -27,8 +27,6 @@
 
     #pdf-canvas {
       display: block;
-      max-width: 100%;
-      max-height: 100%;
     }
 
     .button {
@@ -43,6 +41,12 @@
       z-index: 10;
       padding: 20px;
       user-select: none;
+      transition: opacity 0.3s ease, transform 0.2s ease;
+    }
+
+    .button.hidden {
+      opacity: 0;
+      pointer-events: none;
     }
 
     .left {
@@ -53,11 +57,11 @@
       right: 10px;
     }
 
-    .button:hover {
+    .button:not(.hidden):hover {
       transform: translateY(-50%) scale(1.1);
     }
 
-    .button:active {
+    .button:not(.hidden):active {
       transform: translateY(-50%) scale(0.95);
     }
   </style>
@@ -66,7 +70,7 @@
 
 <div class="pdf-container" id="pdf-container">
   <canvas id="pdf-canvas"></canvas>
-  <button id="prev" class="button left">&#10094;</button>
+  <button id="prev" class="button left hidden">&#10094;</button>
   <button id="next" class="button right">&#10095;</button>
 </div>
 
@@ -80,6 +84,27 @@
   let startX = 0;
   let endX = 0;
   let isSwiping = false;
+  let isRendering = false; // Prevenir renderizados simultáneos
+
+  // Función para actualizar la visibilidad de las flechas
+  function updateArrows() {
+    const prevButton = document.getElementById('prev');
+    const nextButton = document.getElementById('next');
+
+    // Ocultar flecha izquierda en la primera página
+    if (currentPage === 1) {
+      prevButton.classList.add('hidden');
+    } else {
+      prevButton.classList.remove('hidden');
+    }
+
+    // Ocultar flecha derecha en la última página
+    if (currentPage === totalPages) {
+      nextButton.classList.add('hidden');
+    } else {
+      nextButton.classList.remove('hidden');
+    }
+  }
 
   // Función mejorada para calcular la escala óptima
   function getOptimalScale(page) {
@@ -93,8 +118,8 @@
     const pageHeight = viewport.height;
 
     // Calcular escalas basadas en el contenedor
-    const scaleX = (containerWidth * 0.95) / pageWidth;  // 95% del ancho
-    const scaleY = (containerHeight * 0.95) / pageHeight; // 95% del alto
+    const scaleX = (containerWidth * 0.95) / pageWidth;
+    const scaleY = (containerHeight * 0.95) / pageHeight;
 
     // Usar la escala menor para mantener la proporción
     return Math.min(scaleX, scaleY);
@@ -102,6 +127,13 @@
 
   // Función para renderizar la página con alta calidad
   function renderPage(pageNum) {
+    // Prevenir renderizados simultáneos
+    if (isRendering) {
+      return;
+    }
+
+    isRendering = true;
+
     pdfDoc.getPage(pageNum).then(function(page) {
       const canvas = document.getElementById('pdf-canvas');
       const ctx = canvas.getContext('2d');
@@ -113,13 +145,21 @@
       // Usar devicePixelRatio para alta resolución
       const dpr = window.devicePixelRatio || 1;
 
-      // Establecer el tamaño visual del canvas (CSS)
-      canvas.style.width = viewport.width + 'px';
-      canvas.style.height = viewport.height + 'px';
+      // IMPORTANTE: Primero limpiar el canvas
+      canvas.width = 0;
+      canvas.height = 0;
+
+      // Luego establecer los tamaños correctos
+      const displayWidth = Math.floor(viewport.width);
+      const displayHeight = Math.floor(viewport.height);
 
       // Establecer el tamaño real del canvas (resolución)
-      canvas.width = viewport.width * dpr;
-      canvas.height = viewport.height * dpr;
+      canvas.width = displayWidth * dpr;
+      canvas.height = displayHeight * dpr;
+
+      // Establecer el tamaño visual del canvas (CSS)
+      canvas.style.width = displayWidth + 'px';
+      canvas.style.height = displayHeight + 'px';
 
       // Escalar el contexto para compensar el DPR
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -130,7 +170,16 @@
         viewport: viewport
       };
 
-      page.render(renderContext);
+      page.render(renderContext).promise.then(function() {
+        isRendering = false;
+        updateArrows(); // Actualizar flechas después de renderizar
+      }).catch(function(error) {
+        console.error('Error al renderizar:', error);
+        isRendering = false;
+      });
+    }).catch(function(error) {
+      console.error('Error al obtener página:', error);
+      isRendering = false;
     });
   }
 
@@ -138,24 +187,35 @@
   pdfjsLib.getDocument(url).promise.then(function(pdf) {
     pdfDoc = pdf;
     totalPages = pdf.numPages;
-    renderPage(currentPage);
+    
+    // Esperar un momento antes del primer renderizado para asegurar
+    // que el DOM esté completamente listo
+    requestAnimationFrame(function() {
+      renderPage(currentPage);
+    });
   }).catch(function(error) {
     console.error('Error al cargar el PDF:', error);
   });
 
-  // Navegación con botones
-  document.getElementById('next').addEventListener('click', function() {
-    if (currentPage < totalPages) {
-      currentPage++;
+  // Función para cambiar de página de forma segura
+  function changePage(newPage) {
+    if (isRendering) {
+      return; // No cambiar si ya está renderizando
+    }
+
+    if (newPage >= 1 && newPage <= totalPages) {
+      currentPage = newPage;
       renderPage(currentPage);
     }
+  }
+
+  // Navegación con botones
+  document.getElementById('next').addEventListener('click', function() {
+    changePage(currentPage + 1);
   });
 
   document.getElementById('prev').addEventListener('click', function() {
-    if (currentPage > 1) {
-      currentPage--;
-      renderPage(currentPage);
-    }
+    changePage(currentPage - 1);
   });
 
   // Detectar gestos de deslizamiento en móvil
@@ -177,14 +237,12 @@
       const diff = startX - endX;
 
       if (Math.abs(diff) > swipeThreshold) {
-        if (diff > 0 && currentPage < totalPages) {
+        if (diff > 0) {
           // Deslizar a la izquierda (siguiente página)
-          currentPage++;
-          renderPage(currentPage);
-        } else if (diff < 0 && currentPage > 1) {
+          changePage(currentPage + 1);
+        } else {
           // Deslizar a la derecha (página anterior)
-          currentPage--;
-          renderPage(currentPage);
+          changePage(currentPage - 1);
         }
       }
     }
@@ -196,7 +254,7 @@
   window.addEventListener('resize', function() {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(function() {
-      if (pdfDoc) {
+      if (pdfDoc && !isRendering) {
         renderPage(currentPage);
       }
     }, 250);
@@ -204,12 +262,10 @@
 
   // Navegación con teclado
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'ArrowRight' && currentPage < totalPages) {
-      currentPage++;
-      renderPage(currentPage);
-    } else if (e.key === 'ArrowLeft' && currentPage > 1) {
-      currentPage--;
-      renderPage(currentPage);
+    if (e.key === 'ArrowRight') {
+      changePage(currentPage + 1);
+    } else if (e.key === 'ArrowLeft') {
+      changePage(currentPage - 1);
     }
   });
 </script>
