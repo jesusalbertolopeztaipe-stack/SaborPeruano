@@ -82,22 +82,24 @@
   function getScale() {
     const windowWidth = window.innerWidth;
     const windowHeight = window.innerHeight;
-    
-    // Ajustar la escala según el alto máximo disponible
-    const scaleByHeight = windowHeight / 800;  // 800 es el alto aproximado del PDF
+
+    // Usar la altura disponible para el ajuste, sin deformar el aspecto
+    const scaleByHeight = windowHeight / 800;  // 800 es la altura aproximada del PDF
     const scaleByWidth = windowWidth / 600;    // 600 es el ancho aproximado del PDF
 
-    // Usamos la menor de las dos escalas para asegurarnos de que la página cabe en la pantalla
-    return Math.min(scaleByWidth, scaleByHeight);
+    // Queremos que el PDF se ajuste al límite de altura, pero sin deformarse, usando la escala más pequeña
+    const scale = Math.min(scaleByHeight, scaleByWidth);
+    
+    return scale; // Esta escala asegura que el contenido no se deforme
   }
 
-  // Función para aumentar la resolución del canvas
+  // Función para renderizar la página en alta resolución
   function renderPageWithHighResolution(pageNum) {
     pdfDoc.getPage(pageNum).then(function(page) {
       const canvas = document.getElementById('pdf-canvas');
       const ctx = canvas.getContext('2d');
       
-      // Usamos la escala calculada para ajustarnos a la pantalla
+      // Escala calculada
       const scale = getScale();
       const viewport = page.getViewport({ scale: scale });
 
@@ -126,7 +128,7 @@
     renderPageWithHighResolution(currentPage);
   });
 
-  // Función para renderizar la página del PDF
+  // Función para renderizar la página
   function renderPage(pageNum) {
     pdfDoc.getPage(pageNum).then(function(page) {
       const canvas = document.getElementById('pdf-canvas');
