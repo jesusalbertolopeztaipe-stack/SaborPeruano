@@ -92,7 +92,7 @@
     
     // Para móviles pequeños, la escala debe ser ajustada para no ser tan grande
     if (windowWidth < 600) {
-      return Math.min(scale, 0.8); // Limita la escala a un máximo del 80% en pantallas pequeñas
+      return Math.min(scale, 0.85); // Limita la escala a un máximo del 85% en pantallas pequeñas
     }
 
     return scale; // Esta escala asegura que el contenido no se deforme
@@ -112,7 +112,7 @@
       canvas.width = viewport.width;
       canvas.height = viewport.height;
 
-      // Aumentar la resolución del canvas solo si es necesario
+      // Aumentar la resolución del canvas usando el factor de píxeles de la pantalla (devicePixelRatio)
       const dpiScale = window.devicePixelRatio || 1;
       canvas.width = viewport.width * dpiScale;
       canvas.height = viewport.height * dpiScale;
