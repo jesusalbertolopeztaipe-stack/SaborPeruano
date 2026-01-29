@@ -14,18 +14,22 @@
       font-family: 'Arial', sans-serif;
     }
 
-    /* El contenedor debe ajustarse al tamaño del PDF sin ocupar toda la pantalla */
+    /* El contenedor del PDF debe estar centrado tanto horizontal como verticalmente */
     .pdf-container {
       display: flex;
       justify-content: center;
       align-items: center;
+      height: 100%;
+      width: 100%;
       position: relative;
-      touch-action: none; /* Prevenir que el navegador haga scroll mientras detectamos el gesto */
+      overflow: hidden; /* Evitar el desbordamiento */
     }
 
-    /* El canvas se ajusta proporcionalmente, pero no ocupa toda la pantalla */
+    /* El canvas se ajusta proporcionalmente */
     canvas {
       border: none;
+      max-width: 100%;
+      max-height: 100%;
     }
 
     /* Los controles de navegación */
@@ -86,6 +90,11 @@
     // Queremos que el PDF se ajuste al límite de altura, pero sin deformarse, usando la escala más pequeña
     const scale = Math.min(scaleByHeight, scaleByWidth);
     
+    // Para móviles pequeños, la escala debe ser ajustada para no ser tan grande
+    if (windowWidth < 600) {
+      return Math.min(scale, 0.8); // Limita la escala a un máximo del 80% en pantallas pequeñas
+    }
+
     return scale; // Esta escala asegura que el contenido no se deforme
   }
 
